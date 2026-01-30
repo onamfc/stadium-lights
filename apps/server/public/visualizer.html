@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stadium Lights - Pattern Visualizer</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: #888;
+      font-size: 14px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .controls input {
+      background: #2d2d44;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #fff;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      width: 200px;
+      text-align: center;
+    }
+
+    .controls input::placeholder {
+      color: #666;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .controls button {
+      background: #4a90d9;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .controls button:hover {
+      background: #5a9fe9;
+    }
+
+    .controls button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+
+    .controls button.disconnect {
+      background: #dc3545;
+    }
+
+    .controls button.disconnect:hover {
+      background: #e44555;
+    }
+
+    .status {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .status-item {
+      text-align: center;
+    }
+
+    .status-label {
+      color: #888;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .status-value {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .status-value.connected {
+      color: #28a745;
+    }
+
+    .status-value.disconnected {
+      color: #dc3545;
+    }
+
+    .status-value.pattern {
+      color: #4a90d9;
+    }
+
+    .visualizer-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    /* Grid mode styles */
+    .grid-wrapper {
+      position: relative;
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 4px;
+      background: #2d2d44;
+      padding: 16px;
+      border-radius: 12px;
+      max-width: 100%;
+      overflow: visible;
+    }
+
+    .grid .zone {
+      width: 50px;
+      height: 50px;
+      background: #1a1a2e;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.05s, box-shadow 0.05s;
+      position: relative;
+    }
+
+    .grid .zone.center-zone {
+      visibility: hidden;
+    }
+
+    /* Ring mode styles */
+    .ring-wrapper {
+      position: relative;
+      width: 600px;
+      height: 400px;
+    }
+
+    .ring-field {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40%;
+      height: 50%;
+      background: #1e4d2b;
+      border-radius: 8px;
+      border: 2px solid #2a6b3a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #3a8b4a;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .ring-wrapper .zone {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: #1a1a2e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.05s, box-shadow 0.05s;
+      transform: translate(-50%, -50%);
+    }
+
+    .zone.on {
+      background: #ffd700;
+      box-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700;
+    }
+
+    .zone-id {
+      font-size: 8px;
+      color: #666;
+      position: absolute;
+      top: 2px;
+      left: 4px;
+    }
+
+    .ring-wrapper .zone-id {
+      display: none;
+    }
+
+    .zone.on .zone-id {
+      color: #333;
+    }
+
+    .zone-count {
+      display: none;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .legend {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      color: #888;
+      font-size: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-box {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+
+    .legend-box.off {
+      background: #1a1a2e;
+      border: 1px solid #444;
+    }
+
+    .legend-box.on {
+      background: #ffd700;
+      box-shadow: 0 0 8px #ffd700;
+    }
+
+    .instructions {
+      max-width: 600px;
+      margin: 40px auto 0;
+      padding: 20px;
+      background: #2d2d44;
+      border-radius: 12px;
+    }
+
+    .instructions h2 {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .instructions ol {
+      padding-left: 20px;
+      color: #aaa;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 600px) {
+      .zone {
+        width: 30px;
+        height: 30px;
+      }
+
+      .zone-id {
+        display: none;
+      }
+
+      .zone-count {
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Stadium Lights Visualizer</h1>
+    <p>Real-time pattern visualization for testing</p>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="codeInput" placeholder="Enter group code" maxlength="32" />
+    <button id="connectBtn">Connect</button>
+  </div>
+
+  <div class="status">
+    <div class="status-item">
+      <div class="status-label">Status</div>
+      <div class="status-value disconnected" id="connectionStatus">Disconnected</div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Participants</div>
+      <div class="status-value" id="participantCount">0</div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Current Pattern</div>
+      <div class="status-value pattern" id="currentPattern">None</div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Mode</div>
+      <div class="status-value" id="displayMode">Grid</div>
+    </div>
+  </div>
+
+  <div class="visualizer-container">
+    <div class="grid-wrapper" id="gridWrapper">
+      <div class="grid" id="grid">
+        <div style="color: #666; padding: 40px;">Enter a group code to view the stadium grid</div>
+      </div>
+    </div>
+    <div class="ring-wrapper hidden" id="ringWrapper">
+      <div class="ring-field">FIELD</div>
+      <div id="ringZones"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-box off"></div>
+      <span>Light Off</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-box on"></div>
+      <span>Light On</span>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <h2>How to use</h2>
+    <ol>
+      <li>Create a group in the Stadium Lights mobile app</li>
+      <li>Enter the group code above and click Connect</li>
+      <li>Spawn mock participants from the controller screen</li>
+      <li>Trigger patterns and watch them animate here</li>
+    </ol>
+  </div>
+
+  <script>
+    const codeInput = document.getElementById('codeInput');
+    const connectBtn = document.getElementById('connectBtn');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const participantCount = document.getElementById('participantCount');
+    const currentPattern = document.getElementById('currentPattern');
+    const grid = document.getElementById('grid');
+    const gridWrapper = document.getElementById('gridWrapper');
+    const ringWrapper = document.getElementById('ringWrapper');
+    const ringZones = document.getElementById('ringZones');
+
+    let socket = null;
+    let gridSize = { rows: 10, cols: 10 };
+    let zoneElements = new Map();
+    let ringZoneElements = new Map();
+    let zoneStates = new Map();
+    let zoneParticipantCounts = new Map();
+    let zoneData = []; // Store zone data with angle/distance
+    let patternInterval = null;
+    let currentExecution = null;
+    let currentMode = 'grid';
+
+    function connect() {
+      const code = codeInput.value.trim().toUpperCase();
+      if (!code) {
+        alert('Please enter a group code');
+        return;
+      }
+
+      if (socket) {
+        socket.disconnect();
+      }
+
+      socket = io(window.location.origin, {
+        transports: ['websocket'],
+      });
+
+      socket.on('connect', () => {
+        console.log('Connected to server');
+        socket.emit('join_visualizer', { code });
+      });
+
+      socket.on('visualizer_joined', (payload) => {
+        console.log('Joined as visualizer:', payload);
+        connectionStatus.textContent = 'Connected';
+        connectionStatus.className = 'status-value connected';
+        connectBtn.textContent = 'Disconnect';
+        connectBtn.className = 'disconnect';
+        codeInput.disabled = true;
+
+        gridSize = payload.gridSize;
+        zoneData = payload.zones || [];
+        participantCount.textContent = payload.participantCount;
+
+        createGrid(gridSize.rows, gridSize.cols);
+        createRingLayout(zoneData);
+        updateZoneDistribution(payload.zoneDistribution);
+      });
+
+      socket.on('participant_count', (payload) => {
+        participantCount.textContent = payload.count;
+        updateZoneDistribution(payload.zoneDistribution);
+      });
+
+      socket.on('pattern_start', (execution) => {
+        console.log('Pattern started:', execution);
+        currentPattern.textContent = execution.patternId;
+        currentExecution = execution;
+
+        // Switch display mode based on pattern mode
+        const mode = execution.mode || 'grid';
+        setDisplayMode(mode);
+
+        startPatternExecution(execution);
+      });
+
+      socket.on('pattern_stop', () => {
+        console.log('Pattern stopped');
+        currentPattern.textContent = 'None';
+        stopPatternExecution();
+      });
+
+      socket.on('time_sync', (payload) => {
+        // Store server time offset for accurate pattern timing
+        window.serverTimeOffset = payload.serverTime - Date.now();
+      });
+
+      socket.on('error', (payload) => {
+        console.error('Error:', payload);
+        alert(payload.message);
+        disconnect();
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Disconnected');
+        disconnect();
+      });
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+
+      stopPatternExecution();
+      connectionStatus.textContent = 'Disconnected';
+      connectionStatus.className = 'status-value disconnected';
+      connectBtn.textContent = 'Connect';
+      connectBtn.className = '';
+      codeInput.disabled = false;
+      currentPattern.textContent = 'None';
+      participantCount.textContent = '0';
+
+      // Clear ring elements
+      ringZoneElements.clear();
+      ringZones.innerHTML = '';
+      zoneData = [];
+      setDisplayMode('grid');
+
+      // Reset grid to placeholder
+      grid.innerHTML = '<div style="color: #666; padding: 40px;">Enter a group code to view the stadium grid</div>';
+      zoneElements.clear();
+    }
+
+    function setDisplayMode(mode) {
+      currentMode = mode;
+      const displayModeEl = document.getElementById('displayMode');
+      if (mode === 'ring') {
+        gridWrapper.classList.add('hidden');
+        ringWrapper.classList.remove('hidden');
+        displayModeEl.textContent = 'Ring';
+      } else {
+        gridWrapper.classList.remove('hidden');
+        ringWrapper.classList.add('hidden');
+        displayModeEl.textContent = 'Grid';
+      }
+    }
+
+    function createGrid(rows, cols) {
+      grid.innerHTML = '';
+      grid.style.gridTemplateColumns = `repeat(${cols}, 50px)`;
+      zoneElements.clear();
+      zoneStates.clear();
+      zoneParticipantCounts.clear();
+
+      // Calculate center and threshold for "donut hole"
+      const centerRow = (rows - 1) / 2;
+      const centerCol = (cols - 1) / 2;
+
+      // Define the rectangular hole in the center (as fraction of grid)
+      const holeRowStart = Math.floor(rows * 0.3);
+      const holeRowEnd = Math.ceil(rows * 0.7);
+      const holeColStart = Math.floor(cols * 0.35);
+      const holeColEnd = Math.ceil(cols * 0.65);
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const zoneId = `zone-${row}-${col}`;
+          const zone = document.createElement('div');
+
+          // Check if this zone is in the center "hole"
+          const isCenter = row >= holeRowStart && row < holeRowEnd &&
+                          col >= holeColStart && col < holeColEnd;
+
+          zone.className = isCenter ? 'zone center-zone' : 'zone';
+          zone.innerHTML = `
+            <div class="zone-id">${row},${col}</div>
+            <div class="zone-count">0</div>
+          `;
+          grid.appendChild(zone);
+          zoneElements.set(zoneId, zone);
+          zoneStates.set(zoneId, false);
+          zoneParticipantCounts.set(zoneId, 0);
+        }
+      }
+
+    }
+
+    function createRingLayout(zones) {
+      ringZones.innerHTML = '';
+      ringZoneElements.clear();
+
+      // Ring dimensions - oval shape
+      const containerWidth = 600;
+      const containerHeight = 400;
+      const centerX = containerWidth / 2;
+      const centerY = containerHeight / 2;
+
+      // Outer and inner radii for the ring (oval)
+      const outerRadiusX = containerWidth * 0.48;
+      const outerRadiusY = containerHeight * 0.48;
+      const innerRadiusX = containerWidth * 0.22;
+      const innerRadiusY = containerHeight * 0.28;
+
+      for (const z of zones) {
+        const zoneId = z.id;
+        const angle = z.angle ?? 0;
+        const distance = z.distance ?? 0.5;
+
+        // Convert angle to radians (adjust so 0 is at top)
+        const radians = (angle - 90) * (Math.PI / 180);
+
+        // Interpolate between inner and outer radius based on distance
+        const radiusX = innerRadiusX + (outerRadiusX - innerRadiusX) * distance;
+        const radiusY = innerRadiusY + (outerRadiusY - innerRadiusY) * distance;
+
+        // Calculate position
+        const x = centerX + radiusX * Math.cos(radians);
+        const y = centerY + radiusY * Math.sin(radians);
+
+        const zone = document.createElement('div');
+        zone.className = 'zone';
+        zone.style.left = `${x}px`;
+        zone.style.top = `${y}px`;
+        zone.innerHTML = `<div class="zone-id">${z.row},${z.col}</div>`;
+
+        ringZones.appendChild(zone);
+        ringZoneElements.set(zoneId, zone);
+        zoneStates.set(zoneId, false);
+      }
+    }
+
+    function updateZoneDistribution(distribution) {
+      // Reset all counts to 0
+      zoneElements.forEach((element, zoneId) => {
+        const countEl = element.querySelector('.zone-count');
+        countEl.textContent = '0';
+        zoneParticipantCounts.set(zoneId, 0);
+      });
+
+      // Update with actual counts
+      for (const [zoneId, count] of Object.entries(distribution)) {
+        const element = zoneElements.get(zoneId);
+        if (element) {
+          const countEl = element.querySelector('.zone-count');
+          countEl.textContent = count;
+          zoneParticipantCounts.set(zoneId, count);
+        }
+      }
+    }
+
+    function setZoneState(zoneId, isOn) {
+      // Update both grid and ring elements
+      const gridElement = zoneElements.get(zoneId);
+      const ringElement = ringZoneElements.get(zoneId);
+
+      if (gridElement) {
+        if (isOn) {
+          gridElement.classList.add('on');
+        } else {
+          gridElement.classList.remove('on');
+        }
+      }
+
+      if (ringElement) {
+        if (isOn) {
+          ringElement.classList.add('on');
+        } else {
+          ringElement.classList.remove('on');
+        }
+      }
+
+      zoneStates.set(zoneId, isOn);
+    }
+
+    function getServerTime() {
+      return Date.now() + (window.serverTimeOffset || 0);
+    }
+
+    function startPatternExecution(execution) {
+      stopPatternExecution();
+
+      const { startTime, duration, zoneSchedule, loop } = execution;
+
+      // Sort time offsets
+      const timeOffsets = Object.keys(zoneSchedule).map(Number).sort((a, b) => a - b);
+
+      function updateState() {
+        const serverTime = getServerTime();
+        let elapsed = serverTime - startTime;
+
+        if (elapsed < 0) return; // Pattern hasn't started yet
+
+        if (loop) {
+          elapsed = elapsed % duration;
+        } else if (elapsed >= duration) {
+          stopPatternExecution();
+          currentPattern.textContent = 'None';
+          return;
+        }
+
+        // Find the most recent state for each zone
+        const currentStates = new Map();
+
+        for (const offset of timeOffsets) {
+          if (offset <= elapsed) {
+            const states = zoneSchedule[offset];
+            for (const state of states) {
+              currentStates.set(state.zoneId, state.isOn);
+            }
+          } else {
+            break;
+          }
+        }
+
+        // Apply states
+        zoneStates.forEach((_, zoneId) => {
+          const isOn = currentStates.get(zoneId) || false;
+          setZoneState(zoneId, isOn);
+        });
+      }
+
+      // Update at 60fps for smooth animation
+      patternInterval = setInterval(updateState, 16);
+      updateState();
+    }
+
+    function stopPatternExecution() {
+      if (patternInterval) {
+        clearInterval(patternInterval);
+        patternInterval = null;
+      }
+
+      // Turn off all zones
+      zoneStates.forEach((_, zoneId) => {
+        setZoneState(zoneId, false);
+      });
+
+      currentExecution = null;
+
+      // Reset to grid mode when pattern stops
+      setDisplayMode('grid');
+    }
+
+    connectBtn.addEventListener('click', () => {
+      if (socket && socket.connected) {
+        disconnect();
+      } else {
+        connect();
+      }
+    });
+
+    codeInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        connect();
+      }
+    });
+
+    // Auto-uppercase input
+    codeInput.addEventListener('input', () => {
+      codeInput.value = codeInput.value.toUpperCase();
+    });
+
+    // Initialize server time offset
+    window.serverTimeOffset = 0;
+  </script>
+</body>
+</html>

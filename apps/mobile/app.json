@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "Stadium Lights",
+    "slug": "stadium-lights",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "stadiumlights",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "extra": {
+      "privacyPolicyUrl": "https://api.stadiumlights.io/privacy",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "3b6b5d4c-75c6-4e6e-8c24-8bff30abe8ea"
+      }
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stadiumlights.app",
+      "associatedDomains": [
+        "applinks:go.stadiumlights.io"
+      ],
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Stadium Lights needs your location to sync light patterns with your position in the stadium.",
+        "NSCameraUsageDescription": "Stadium Lights needs camera access to control your flashlight."
+      }
+    },
+    "android": {
+      "package": "com.stadiumlights.app",
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.FLASHLIGHT",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "go.stadiumlights.io"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Stadium Lights needs your location to sync light patterns with your position in the stadium."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Stadium Lights needs camera access to control your flashlight."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "newArchEnabled": true,
+    "owner": "sitetransition"
+  }
+}
